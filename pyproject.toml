@@ -5,6 +5,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13.5"
 dependencies = [
+    "easyocr>=1.7.2",
     "filelock",
     "fsspec",
     "jinja2",
@@ -12,9 +13,13 @@ dependencies = [
     "networkx",
     "numpy",
     "opencv-python",
+    "pandas>=2.3.2",
     "pillow",
+    "pyside6>=6.9.2",
     "setuptools",
+    "streamlit>=1.49.1",
     "sympy",
+    "tdqm>=0.0.1",
     "torch",
     "torchvision",
     "typing-extensions",
