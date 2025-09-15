@@ -1,0 +1,36 @@
+[project]
+name = "ai-machine-learning-project"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13.5"
+dependencies = [
+    "filelock",
+    "fsspec",
+    "jinja2",
+    "mpmath",
+    "networkx",
+    "numpy",
+    "opencv-python",
+    "pillow",
+    "setuptools",
+    "sympy",
+    "torch",
+    "torchvision",
+    "typing-extensions",
+    "ultralytics>=8.3.193",
+]
+
+[tool.uv.sources]
+filelock = { path = "wheels/filelock-3.13.1-py3-none-any.whl" }
+fsspec = { path = "wheels/fsspec-2024.6.1-py3-none-any.whl" }
+jinja2 = { path = "wheels/Jinja2-3.1.4-py3-none-any.whl" }
+mpmath = { path = "wheels/mpmath-1.3.0-py3-none-any.whl" }
+networkx = { path = "wheels/networkx-3.3-py3-none-any.whl" }
+numpy = { path = "wheels/numpy-2.1.2-cp313-cp313-win_amd64.whl" }
+pillow = { path = "wheels/pillow-11.0.0-cp313-cp313-win_amd64.whl" }
+setuptools = { path = "wheels/setuptools-70.2.0-py3-none-any.whl" }
+sympy = { path = "wheels/sympy-1.13.3-py3-none-any.whl" }
+typing-extensions = { path = "wheels/typing_extensions-4.12.2-py3-none-any.whl" }
+torch = { path = "wheels/torch-2.8.0+cu129-cp313-cp313-win_amd64.whl" }
+torchvision = { path = "wheels/torchvision-0.23.0+cu129-cp313-cp313-win_amd64.whl" }
