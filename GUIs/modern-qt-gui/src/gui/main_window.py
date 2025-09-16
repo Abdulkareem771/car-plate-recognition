@@ -39,6 +39,7 @@ class PlateApp(QWidget):
         
         # Frame processing variables
         self.current_frame = None
+        self.annotated_frame = None  # Store the annotated frame with bounding boxes
         self.processing_frame = False
         self.last_processed_time = 0
         self.processing_interval = 2.0  # Process every 2 seconds to avoid overload
@@ -281,6 +282,11 @@ class PlateApp(QWidget):
                 plate_crop = img[y1:y2, x1:x2]
                 plate_detected = True
 
+                # Draw bounding box around the entire plate
+                cv2.rectangle(annotated, (x1, y1), (x2, y2), (0, 255, 0), 3)
+                cv2.putText(annotated, "License Plate", (x1, y1 - 10), 
+                          cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+
                 # ---- Stage 2: Detect details inside plate ----
                 self.progress_bar.setValue(60)
                 results_details = self.plate_detector.detect_plate_details(plate_crop, conf_threshold/2)
@@ -301,18 +307,21 @@ class PlateApp(QWidget):
 
                             if label == "text":
                                 arabic_text = self.text_recognizer.process_plate_text(text_detected)
+                                color = (255, 0, 0)  # Red for text
                             elif label == "number":
                                 arabic_num, eng_num, arabic_to_eng = self.text_recognizer.extract_numbers(text_detected)
                                 arabic_number = arabic_num
                                 english_number = eng_num if eng_num else arabic_to_eng
+                                color = (0, 0, 255)  # Blue for numbers
                             elif label == "city":
                                 city_arabic, city_eng, city_arabic_to_eng = self.text_recognizer.extract_numbers(text_detected)
                                 city_val = city_arabic if city_arabic else (city_eng if city_eng else text_detected)
+                                color = (255, 255, 0)  # Yellow for city
 
                             # Draw rectangle on annotated plate
-                            cv2.rectangle(plate_crop, (dx1, dy1), (dx2, dy2), (0, 255, 0), 2)
+                            cv2.rectangle(plate_crop, (dx1, dy1), (dx2, dy2), color, 2)
                             cv2.putText(plate_crop, f"{label}: {text_detected}", 
-                                      (dx1, dy1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+                                      (dx1, dy1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 1)
 
                 # ---- Fallback: Full plate OCR ----
                 self.progress_bar.setValue(80)
@@ -403,6 +412,7 @@ class PlateApp(QWidget):
     
         # Reset processing state
         self.current_frame = None
+        self.annotated_frame = None
         self.processing_frame = False
         self.last_processed_time = 0
     
@@ -412,6 +422,7 @@ class PlateApp(QWidget):
         
     def stop_camera(self):
         self.camera_thread.stop()
+        self.annotated_frame = None  # Clear annotated frame
         self.btn_start_cam.setEnabled(True)
         self.btn_stop_cam.setEnabled(False)
         
@@ -421,12 +432,17 @@ class PlateApp(QWidget):
             # Store the current frame for processing
             self.current_frame = frame.copy()
             
-            # Display the frame
-            rgb_image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            # Display the annotated frame if available, otherwise display the original frame
+            display_frame = self.annotated_frame if self.annotated_frame is not None else frame
+            
+            # Convert to QImage for display
+            rgb_image = cv2.cvtColor(display_frame, cv2.COLOR_BGR2RGB)
             h, w, ch = rgb_image.shape
             bytes_per_line = ch * w
             q_img = QImage(rgb_image.data, w, h, bytes_per_line, QImage.Format_RGB888)
             pixmap = QPixmap.fromImage(q_img)
+            
+            # Scale and display
             self.image_label.setPixmap(
                 pixmap.scaled(600, 400, Qt.KeepAspectRatio, Qt.SmoothTransformation)
             )
@@ -471,6 +487,11 @@ class PlateApp(QWidget):
                     plate_crop = frame[y1:y2, x1:x2]
                     plate_detected = True
 
+                    # Draw bounding box around the entire plate
+                    cv2.rectangle(annotated, (x1, y1), (x2, y2), (0, 255, 0), 3)
+                    cv2.putText(annotated, "License Plate", (x1, y1 - 10), 
+                              cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+
                     # ---- Stage 2: Detect details inside plate ----
                     results_details = self.plate_detector.detect_plate_details(plate_crop, conf_threshold/2)
 
@@ -490,18 +511,21 @@ class PlateApp(QWidget):
 
                                 if label == "text":
                                     arabic_text = self.text_recognizer.process_plate_text(text_detected)
+                                    color = (255, 0, 0)  # Red for text
                                 elif label == "number":
                                     arabic_num, eng_num, arabic_to_eng = self.text_recognizer.extract_numbers(text_detected)
                                     arabic_number = arabic_num
                                     english_number = eng_num if eng_num else arabic_to_eng
+                                    color = (0, 0, 255)  # Blue for numbers
                                 elif label == "city":
                                     city_arabic, city_eng, city_arabic_to_eng = self.text_recognizer.extract_numbers(text_detected)
                                     city_val = city_arabic if city_arabic else (city_eng if city_eng else text_detected)
+                                    color = (255, 255, 0)  # Yellow for city
 
                                 # Draw rectangle on annotated plate
-                                cv2.rectangle(plate_crop, (dx1, dy1), (dx2, dy2), (0, 255, 0), 2)
+                                cv2.rectangle(plate_crop, (dx1, dy1), (dx2, dy2), color, 2)
                                 cv2.putText(plate_crop, f"{label}: {text_detected}", 
-                                          (dx1, dy1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+                                          (dx1, dy1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 1)
 
                     # ---- Fallback: Full plate OCR ----
                     if self.enable_ocr_check.isChecked():
@@ -521,6 +545,9 @@ class PlateApp(QWidget):
 
                     # Replace original image plate with annotated plate
                     annotated[y1:y2, x1:x2] = plate_crop
+
+            # Store the annotated frame for display
+            self.annotated_frame = annotated.copy()
 
             # Update GUI fields
             self.city_field.setText(city_val if city_val else "Not detected")
