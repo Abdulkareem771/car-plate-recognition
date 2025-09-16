@@ -4,11 +4,16 @@ import numpy as np
 from ultralytics import YOLO
 import easyocr
 from PIL import Image
+import os
+from pathlib import Path
 
 # ===== USER SETTINGS =====
-MODEL_PLATE = "src/models/yolov8s14/weights/best.pt"        # plate detector
-MODEL_PLATE_DETAILS = "src/models/yolov8s5/weights/best.pt" # details detector
-
+script_dir = Path(__file__).parent
+parent_path = script_dir.parent.parent #/"src"/"models"/"yolov8s14"/"weights"/"best.pt"
+MODEL_PLATE =parent_path / "src" / "models" / "yolov8s14" / "weights" / "best.pt"# plate detector
+MODEL_PLATE=str(MODEL_PLATE.resolve())
+MODEL_PLATE_DETAILS = parent_path / "src" / "models" / "yolov8s5" / "weights" / "best.pt"   #"src/models/yolov8s5/weights/best.pt" # details detector
+MODEL_PLATE_DETAILS=str(MODEL_PLATE_DETAILS.resolve())
 # Load models once
 plate_model = YOLO(MODEL_PLATE)
 details_model = YOLO(MODEL_PLATE_DETAILS)
