@@ -3,11 +3,11 @@ import cv2
 import os
 
 # Load your trained YOLO model
-model = YOLO("runs/detect/yolov8n14/weights/best.pt")  # replace with your weights
+model = YOLO("src/models/yolov8s14/weights/best.pt")  # replace with your weights
 
 # Input and output folders
-input_folder = "cars"       # folder with your original pictures
-output_folder = "yemen_plates"      # folder where cropped plates will be saved
+input_folder = "src/data/plat number car yemen.v1i.yolov8/train/images"       # folder with your original pictures
+output_folder = "src/utils/results_cropped"      # folder where cropped plates will be saved
 
 # Create output folder if it doesn't exist
 os.makedirs(output_folder, exist_ok=True)
