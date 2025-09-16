@@ -1,15 +1,15 @@
 from ultralytics import YOLO
 
 def main():
-    model = YOLO("yolov8n.pt")
+    model = YOLO("src\models\yolov8s.pt")
 
     results = model.train(
-        data="archive/data.yaml", 
+        data=r"src\data\archive\data.yaml", 
         epochs=20, 
         imgsz=640, 
         batch=16,
         device=0,
-        name="yolov8n",
+        name="yolov8s",
         patience=1,
             
         workers=0,  

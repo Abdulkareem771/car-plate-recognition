@@ -5,12 +5,11 @@ build/
 dist/
 wheels/
 *.egg-info
-archive/
-archive.zip
-Cars
 
 
-yemen_plates
+
+
+
 
 # Virtual environments
 .venv

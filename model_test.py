@@ -3,9 +3,9 @@ import cv2
 import os
 
 
-MODEL_PATH = "runs/detect/yolov8n14/weights/best.pt"        
-IMAGES_DIR = "archive/test/test"    
-OUT_DIR = "results"           
+MODEL_PATH = "src/models/yolov8s14/weights/best.pt"        
+IMAGES_DIR = "src/data/archive/test/test"
+OUT_DIR = "src/utils/results"          
 
 
 os.makedirs(OUT_DIR, exist_ok=True)
