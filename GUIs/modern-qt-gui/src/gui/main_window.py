@@ -9,11 +9,17 @@ from PySide6.QtWidgets import (
 from PySide6.QtGui import QPixmap, QImage, QFont, QIcon, QPalette, QColor
 from PySide6.QtCore import Qt, QTimer
 
+
 from src.models.plate_detector import PlateDetector
 from src.models.text_recognizer import TextRecognizer
 from src.utils.camera import CameraThread
 from src.utils.helpers import is_valid_ip
+from src.utils.helpers import is_valid_url
 from src.gui.styles import DARK_STYLE
+
+import threading
+import time
+from queue import Queue
 
 class PlateApp(QWidget):
     def __init__(self):
@@ -33,6 +39,13 @@ class PlateApp(QWidget):
         self.camera_thread = CameraThread()
         self.camera_thread.frame_ready.connect(self.update_frame)
         self.camera_thread.error_occurred.connect(self.handle_camera_error)
+        
+        self.current_frame = None
+        self.processing_frame = False
+        self.frame_queue = Queue(maxsize=1)  # Only process latest frame
+        self.processing_timer = QTimer()
+        self.processing_timer.timeout.connect(self.process_camera_frame)
+        self.processing_timer.start(100)  # Process every 100ms (10 FPS)
         
         # Apply styles
         self.setStyleSheet(DARK_STYLE)
@@ -72,8 +85,9 @@ class PlateApp(QWidget):
         camera_layout.addWidget(self.camera_combo)
         
         # IP camera input
+        # Change the IP input field to accept URLs
         self.ip_input = QLineEdit()
-        self.ip_input.setPlaceholderText("Enter IP address (e.g., 192.168.1.100)")
+        self.ip_input.setPlaceholderText("Enter camera URL (rtsp://, http://, or IP address)")
         self.ip_input.setVisible(False)
         camera_layout.addWidget(self.ip_input)
         
@@ -367,20 +381,24 @@ class PlateApp(QWidget):
         
     def start_camera(self):
         camera_type = self.camera_type_combo.currentIndex()
-        
+    
         if camera_type == 0:  # Webcam
             camera_index = self.camera_combo.currentIndex()
             self.camera_thread.set_camera_source(camera_index)
-        else:  # IP Camera
-            ip_address = self.ip_input.text().strip()
-            if not ip_address or not is_valid_ip(ip_address):
-                self.summary_output.setPlainText("Please enter a valid IP address")
+        else:  # IP Camera/URL
+            camera_url = self.ip_input.text().strip()
+    
+            if not camera_url or not is_valid_url(camera_url):
+                self.summary_output.setPlainText("Please enter a valid camera URL (rtsp://, http://) or IP address")
                 return
-                
-            # Construct RTSP URL (you might need to adjust this based on your camera)
-            rtsp_url = f"rtsp://{ip_address}:554/stream1"
-            self.camera_thread.set_camera_source(rtsp_url)
-        
+    
+            # If it's an IP without protocol, construct default URL
+            if not any(camera_url.startswith(proto) for proto in ['rtsp://', 'http://', 'https://']):
+                camera_url = f"rtsp://{camera_url}:554/stream1"
+                print(f"Using default RTSP URL: {camera_url}")
+    
+            self.camera_thread.set_camera_source(camera_url)
+    
         self.camera_thread.start()
         self.btn_start_cam.setEnabled(False)
         self.btn_stop_cam.setEnabled(True)

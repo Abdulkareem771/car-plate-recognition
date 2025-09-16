@@ -40,6 +40,10 @@ def extract_clean_numbers(text):
 
 def is_valid_ip(address):
     """Check if the given string is a valid IP address"""
+    # Allow empty strings (handled by caller)
+    if not address:
+        return False
+        
     parts = address.split('.')
     if len(parts) != 4:
         return False
@@ -65,3 +69,17 @@ def ensure_model_paths():
         error_msg += "\n1. The models folder exists in the project root"
         error_msg += "\n2. The model paths are correct in src/config/settings.py"
         raise FileNotFoundError(error_msg)
+def is_valid_url(url):
+    """Check if the given string is a valid camera URL"""
+    if not url:
+        return False
+    
+    # Check for common camera protocols
+    valid_protocols = ['rtsp://', 'http://', 'https://', 'rtmp://']
+    
+    # If it has a protocol, assume it's valid
+    if any(url.startswith(proto) for proto in valid_protocols):
+        return True
+    
+    # Otherwise, check if it's a valid IP address
+    return is_valid_ip(url)
