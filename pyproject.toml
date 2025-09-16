@@ -1,7 +1,8 @@
 [project]
-name = "car plates number recognition"
+name = "car-plates-number-recognition"
 version = "0.1.0"
 description = "This project focuses on automatic car license plate detection and recognition using computer vision and AI techniques. It is designed to detect license plates from vehicle images or video streams, extract the plate region, and recognize the characters for further processing."
+
 readme = "README.md"
 requires-python = ">=3.13.5"
 dependencies = [
