@@ -5,7 +5,7 @@ import cv2
 from PIL import Image, ImageTk
 
 # === USER SETTINGS ===
-MODEL_PATH ="src\models\yolov8s14\weights\best.pt"
+MODEL_PATH = "src/models/yolov8s14/weights/best.pt"
 
 # Load YOLO model once
 model = YOLO(MODEL_PATH)
