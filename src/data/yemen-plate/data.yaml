@@ -1,0 +1,13 @@
+train: ../train/images
+val: ../valid/images
+test: ../test/images
+
+nc: 3
+names: ['city', 'number', 'text']
+
+roboflow:
+  workspace: abdulkareem-thiab
+  project: plat-number-car-yemen-gxxpv-cqpqp
+  version: 3
+  license: CC BY 4.0
+  url: https://universe.roboflow.com/abdulkareem-thiab/plat-number-car-yemen-gxxpv-cqpqp/dataset/3
