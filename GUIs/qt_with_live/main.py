@@ -19,7 +19,7 @@ class PlateApp(QWidget):
         # Initialize models
         # Go up two levels to get to the parent of GUIs folder, then to src/models
         script_dir = Path(__file__).parent
-        model_path = script_dir.parent.parent.parent / "src" / "models" / "yolov8s14" / "weights" / "best.pt"
+        model_path = script_dir.parent.parent/ "src" / "models" / "yolov8s14" / "weights" / "best.pt"
         
         self.detector = PlateDetector(str(model_path))
         self.recognizer = PlateRecognizer()
