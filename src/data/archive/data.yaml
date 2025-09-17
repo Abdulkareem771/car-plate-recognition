@@ -1,0 +1,6 @@
+train: train/train
+val: valid/valid
+test: test/test
+
+nc: 1
+names: ['License_Plate']
