@@ -20,7 +20,7 @@ The project focuses specifically on Yemeni license plates and supports both Arab
 
 ### Team Members
 
-- **Ahmed Al-duais** - 202270176
+- **Ahmed Al-Duais** - 202270176
 - **Abulkareem Thiab** -   202270136
 - **Ayman Mrwan** - 202270324
 
@@ -88,23 +88,93 @@ The project includes pre-trained models in the `src/models/` directory:
 
 ## Usage Examples
 
-### 1. Qt-based GUI Application (Recommended)
+### GUI Applications
 
-Launch the modern Qt-based interface with both image processing and live stream capabilities:
+The project includes multiple GUI applications for different use cases and complexity levels:
+
+#### 1. Advanced Qt GUI with Live Stream (Recommended)
+
+**File:** `GUIs/qt_with_live/main.py`
+
+Launch the most comprehensive GUI with both image processing and live stream capabilities:
 
 ```bash
 python GUIs/qt_with_live/main.py
 ```
 
 **Features:**
-- Image upload and processing
-- Live video stream detection
-- Real-time OCR text recognition
-- Modern, responsive interface
+- **Dual-tab interface**: Image processing and live stream tabs
+- **Image Processing Tab**: Upload and process single images
+- **Live Stream Tab**: Real-time video stream processing with configurable settings
+- **Stream Configuration**: Customizable stream URL and confidence threshold
+- **Real-time OCR**: Arabic and English text recognition
+- **Modern Interface**: Professional Qt-based UI with responsive design
 
-### 2. Simple Tkinter GUI
+**How to Use:**
+1. Launch the application
+2. **For Image Processing**: Click "Upload Image" button, select an image file
+3. **For Live Stream**: 
+   - Enter your stream URL (supports HTTP, RTSP, RTMP, TCP)
+   - Set confidence threshold (0.1-0.9)
+   - Click "Start Stream" to begin real-time processing
+   - Click "Stop Stream" to end processing
 
-For a lightweight interface:
+#### 2. Simple Qt GUI (Single Image Processing)
+
+**File:** `GUIs/simple-gui-qt.py`
+
+A streamlined Qt interface for basic image processing:
+
+```bash
+python GUIs/simple-gui-qt.py
+```
+
+**Features:**
+- Simple image upload interface
+- Direct OCR text recognition
+- Arabic text correction for common misreads
+- Clean, minimal interface
+
+#### 3. Advanced Two-Stage Recognition GUI
+
+**File:** `yemen_plate_gui.py`
+
+Advanced GUI with two-stage detection (plate detection + detailed component recognition):
+
+```bash
+python yemen_plate_gui.py
+```
+
+**Features:**
+- **Two-stage detection**: First detects plates, then analyzes components
+- **Component classification**: Separates city, text, and number components
+- **Arabic digit conversion**: Converts Arabic-Indic digits to English
+- **Detailed results display**: Shows city number, Arabic text, and plate numbers separately
+
+#### 4. Enhanced Two-Stage Recognition GUI (Latest)
+
+**File:** `yemen_plate_v2_gui.py`
+
+The most advanced GUI with enhanced Arabic OCR capabilities:
+
+```bash
+python yemen_plate_v2_gui.py
+```
+
+**Features:**
+- **Enhanced Arabic OCR**: Multiple preprocessing approaches for better Arabic text recognition
+- **Fallback OCR**: Direct OCR on clean plate images when class-based detection fails
+- **Advanced preprocessing**: CLAHE, bilateral filtering, sharpening, and morphological operations
+- **Multi-approach text extraction**: Tries multiple image preprocessing methods
+- **Comprehensive results**: Shows both class-based and fallback detection results
+- **Arabic text cleaning**: Removes OCR artifacts and fixes common misreads
+- **Number extraction**: Separates Arabic and English digits with conversion
+
+#### 5. Simple Tkinter GUI
+
+**File:** `GUIs/simple_gui_tiknter/simple_gui_tiknter.py`
+
+Lightweight interface using Tkinter:
 
 ```bash
 python GUIs/simple_gui_tiknter/simple_gui_tiknter.py
@@ -112,12 +182,18 @@ python GUIs/simple_gui_tiknter/simple_gui_tiknter.py
 
 **Features:**
 - Simple image upload interface
-- Basic detection visualization
-- Easy to use and modify
+- Basic detection visualization with bounding boxes
+- Status updates and error handling
+- Model path auto-detection
+- Easy to modify and extend
 
-### 3. Live Stream Processing
+### Command Line Tools
 
-Process live video streams:
+#### 6. Live Stream Processing
+
+**File:** `recognition-with-live-stream/live-stream.py`
+
+Process live video streams from command line:
 
 ```bash
 python recognition-with-live-stream/live-stream.py
@@ -128,7 +204,54 @@ python recognition-with-live-stream/live-stream.py
 - Adjust confidence threshold as needed
 - Supports HTTP, RTSP, and other streaming protocols
 
-### 4. Command Line Usage
+#### 7. Batch Image Processing
+
+**File:** `model_test.py`
+
+Process multiple images in batch:
+
+```bash
+python model_test.py
+```
+
+**Features:**
+- Processes all images in a directory
+- Saves annotated results to output folder
+- Automatic model loading and processing
+
+#### 8. Plate Cropping Utility
+
+**File:** `seperated-plates.py`
+
+Extract and save individual license plates from images:
+
+```bash
+python seperated-plates.py
+```
+
+**Features:**
+- Crops detected plates from training images
+- Saves each plate as a separate image file
+- Useful for creating OCR training datasets
+
+### GUI Application Comparison
+
+| GUI Application | Complexity | Features | Best For |
+|----------------|------------|----------|----------|
+| **qt_with_live/main.py** | Advanced | Live stream + Image processing | Real-time applications |
+| **yemen_plate_v2_gui.py** | Advanced | Two-stage detection + Enhanced OCR | Research and detailed analysis |
+| **yemen_plate_gui.py** | Intermediate | Two-stage detection | Component analysis |
+| **simple-gui-qt.py** | Basic | Single image processing | Quick testing |
+| **simple_gui_tiknter.py** | Basic | Simple detection | Learning and development |
+
+### How to Launch Each GUI
+
+1. **For Real-time Processing**: Use `GUIs/qt_with_live/main.py`
+2. **For Advanced Analysis**: Use `yemen_plate_v2_gui.py`
+3. **For Quick Testing**: Use `GUIs/simple-gui-qt.py`
+4. **For Learning**: Use `GUIs/simple_gui_tiknter/simple_gui_tiknter.py`
+
+### Command Line Usage
 
 #### Basic Detection
 ```python
@@ -164,6 +287,38 @@ text_detected = " ".join([res[1] for res in ocr_results])
 print(f"Detected text: {text_detected}")
 ```
 
+#### Two-Stage Detection (Advanced)
+```python
+from ultralytics import YOLO
+import easyocr
+
+# Load both models
+plate_model = YOLO("src/models/yolov8s14/weights/best.pt")
+details_model = YOLO("src/models/yolov8s5/weights/best.pt")
+reader = easyocr.Reader(['en', 'ar'])
+
+# Stage 1: Detect plates
+plate_results = plate_model(image)
+for r in plate_results:
+    for box in r.boxes:
+        x1, y1, x2, y2 = map(int, box.xyxy[0].cpu().numpy())
+        plate_crop = image[y1:y2, x1:x2]
+        
+        # Stage 2: Detect components
+        detail_results = details_model(plate_crop)
+        for dr in detail_results:
+            for dbox in dr.boxes:
+                dx1, dy1, dx2, dy2 = map(int, dbox.xyxy[0].cpu().numpy())
+                cls_id = int(dbox.cls[0].cpu().numpy())
+                label = dr.names[cls_id]  # "text", "city", "number"
+                
+                # Extract text using OCR
+                detail_crop = plate_crop[dy1:dy2, dx1:dx2]
+                ocr_results = reader.readtext(detail_crop)
+                text = " ".join([res[1] for res in ocr_results])
+                print(f"{label}: {text}")
+```
+
 ### 5. Model Training
 
 To train your own model:
@@ -191,22 +346,34 @@ results = model.train(
 car-plate-recognition/
 ├── src/
 │   ├── data/                          # Training datasets
-│   │   ├── plat number car yemen.v1i.yolov8/  # Primary dataset
-│   │   └── yemen-plate/               # Extended dataset
+│   │   ├── plat number car yemen.v1i.yolov8/  # Primary dataset (single class)
+│   │   └── yemen-plate/               # Extended dataset (3 classes)
 │   ├── models/                        # Pre-trained models
-│   │   ├── yolov8s14/                # Main trained model
-│   │   └── *.pt                      # Base models
-│   └── utils/                         # Utility functions
+│   │   ├── yolov8s14/                # Main trained model (plate detection)
+│   │   ├── yolov8s5/                 # Secondary model (component detection)
+│   │   └── *.pt                      # Base YOLO models
+│   └── utils/                         # Utility functions and results
+│       └── results/                   # Processed images and cropped plates
 ├── GUIs/                             # User interfaces
-│   ├── qt_with_live/                 # Modern Qt GUI
-│   │   ├── components/               # GUI components
-│   │   └── utils/                    # Detection utilities
+│   ├── qt_with_live/                 # Advanced Qt GUI with live stream
+│   │   ├── components/               # GUI components (image_tab.py, live_stream_tab.py)
+│   │   └── utils/                    # Detection utilities (plate_detector.py, plate_recognizer.py)
 │   └── simple_gui_tiknter/           # Simple Tkinter GUI
-├── runs/detect/                      # Training results
-│   └── yolov8n14/                    # Latest training run
+├── runs/detect/                      # Training results and experiments
+│   ├── yolov8n14/                    # Latest training run (main model)
+│   ├── yolov8s5/                     # Component detection model
+│   └── [multiple training runs]/     # Various training experiments
 ├── recognition-with-live-stream/     # Live stream processing
-├── Car_Plate_Recognition_Project.ipynb  # Jupyter notebook
+├── Car_Plate_Recognition_Project.ipynb  # Jupyter notebook with analysis
 ├── main.py                           # Training script
+├── model_test.py                     # Batch image processing
+├── seperated-plates.py               # Plate cropping utility
+├── convert_to_yolo.py                # CSV to YOLO format converter
+├── yemen car plate number model train.py  # Training script for extended dataset
+├── yemen_plate_gui.py                # Two-stage recognition GUI
+├── yemen_plate_v2_gui.py             # Enhanced two-stage GUI (latest)
+├── GUIs/simple-gui-qt.py             # Simple Qt GUI
+├── GUIs/simple_gui_tiknter.py        # Simple Tkinter GUI (root level)
 └── pyproject.toml                    # Project configuration
 ```
 
@@ -290,6 +457,36 @@ The final YOLOv8s model achieved the following performance metrics:
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Additional Features
+
+### Two-Stage Detection System
+
+The project implements a sophisticated two-stage detection system:
+
+1. **Stage 1 - Plate Detection**: Uses `yolov8s14` model to detect license plates in images
+2. **Stage 2 - Component Analysis**: Uses `yolov8s5` model to analyze plate components (text, city, number)
+
+### Enhanced Arabic OCR
+
+The latest GUI (`yemen_plate_v2_gui.py`) includes advanced Arabic text recognition:
+
+- **Multiple Preprocessing Approaches**: CLAHE, bilateral filtering, sharpening
+- **Arabic Text Cleaning**: Removes OCR artifacts and fixes common misreads
+- **Digit Conversion**: Converts Arabic-Indic digits (٠١٢٣٤٥٦٧٨٩) to English (0123456789)
+- **Fallback OCR**: Direct text extraction when class-based detection fails
+
+### Utility Scripts
+
+- **`convert_to_yolo.py`**: Converts CSV annotations to YOLO format
+- **`seperated-plates.py`**: Extracts individual plates from images for OCR training
+- **`model_test.py`**: Batch processes multiple images for testing
+
+### Training Scripts
+
+- **`main.py`**: Primary training script for plate detection
+- **`yemen car plate number model train.py`**: Training script for component detection
+- **`Car_Plate_Recognition_Project.ipynb`**: Comprehensive analysis notebook
 
 ## Acknowledgments
 
