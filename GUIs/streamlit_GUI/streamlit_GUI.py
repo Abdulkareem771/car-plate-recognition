@@ -9,7 +9,6 @@ from pathlib import Path
 import time
 import re
 import threading
-from queue import Queue
 
 # ===== USER SETTINGS =====
 script_dir = Path(__file__).parent
@@ -18,6 +17,23 @@ MODEL_PLATE = parent_path / "src" / "models" / "yolov8s14" / "weights" / "best.p
 MODEL_PLATE = str(MODEL_PLATE.resolve())
 MODEL_PLATE_DETAILS = parent_path / "src" / "models" / "yolov8s5" / "weights" / "best.pt"
 MODEL_PLATE_DETAILS = str(MODEL_PLATE_DETAILS.resolve())
+
+# Initialize session state
+if 'stream_active' not in st.session_state:
+    st.session_state.stream_active = False
+if 'last_detection' not in st.session_state:
+    st.session_state.last_detection = {
+        'city_arabic': "",
+        'city_english': "",
+        'arabic_text': "",
+        'arabic_number': "",
+        'english_number': "",
+        'full_plate_text': ""
+    }
+if 'processing' not in st.session_state:
+    st.session_state.processing = False
+if 'frame_count' not in st.session_state:
+    st.session_state.frame_count = 0
 
 # Load models with caching
 @st.cache_resource
@@ -181,7 +197,7 @@ st.set_page_config(page_title="🚔 Yemeni Traffic Plate Recognition", layout="w
 st.title("🚔 Yemeni Traffic Plate Recognition System")
 
 # Add mode selection
-mode = st.radio("Select Input Mode:", ("Upload Image", "Live Stream"))
+mode = st.radio("Select Input Mode:", ("Upload Image", "Live Stream"), key="mode_selector")
 
 if mode == "Upload Image":
     # Add instructions
@@ -195,7 +211,7 @@ if mode == "Upload Image":
         3. Results will be displayed on the right side
         """)
 
-    uploaded_file = st.file_uploader("📷 Upload Vehicle Image", type=["jpg", "jpeg", "png"])
+    uploaded_file = st.file_uploader("📷 Upload Vehicle Image", type=["jpg", "jpeg", "png"], key="image_uploader")
 
     if uploaded_file is not None:
         # Validate the uploaded file
@@ -219,55 +235,56 @@ if mode == "Upload Image":
             col1, col2 = st.columns([2, 1])
 
             with col1:
-                st.image(annotated_rgb, caption="Detected Plate", use_column_width=True)
+                st.image(annotated_rgb, caption="Detected Plate", use_container_width=True)
 
             with col2:
                 st.subheader("📋 Detected Classes")
-                st.text_input("City Number (Arabic)", value=city_arabic if city_arabic else "Not detected", key="city_arabic")
-                st.text_input("City Number (English)", value=city_english if city_english else "Not detected", key="city_english")
-                st.text_input("Vehicle Type", value=arabic_text if arabic_text else "Not detected", key="type")
-                st.text_input("Arabic Number", value=arabic_number if arabic_number else "Not detected", key="arabic_num")
-                st.text_input("English Number", value=english_number if english_number else "Not detected", key="english_num")
+                st.text_input("City Number (Arabic)", value=city_arabic if city_arabic else "Not detected", key="city_arabic_img")
+                st.text_input("City Number (English)", value=city_english if city_english else "Not detected", key="city_english_img")
+                st.text_input("Vehicle Type", value=arabic_text if arabic_text else "Not detected", key="type_img")
+                st.text_input("Arabic Number", value=arabic_number if arabic_number else "Not detected", key="arabic_num_img")
+                st.text_input("English Number", value=english_number if english_number else "Not detected", key="english_num_img")
 
                 st.subheader("🔍 Full Plate OCR (Fallback)")
-                st.text_area("OCR Output", value=full_plate_text if full_plate_text else "No text detected", height=100, key="ocr_output")
+                st.text_area("OCR Output", value=full_plate_text if full_plate_text else "No text detected", height=100, key="ocr_output_img")
 
                 st.subheader("📝 Traffic Summary")
                 if plate_detected:
                     summary_text = f"""✅ Plate Detected
-    City (Arabic): {city_arabic if city_arabic else 'Unknown'}
-    City (English): {city_english if city_english else 'Unknown'}
-    Type: {arabic_text if arabic_text else 'Unknown'}
-    Arabic: {arabic_number if arabic_number else 'Unknown'}
-    English: {english_number if english_number else 'Unknown'}"""
+City (Arabic): {city_arabic if city_arabic else 'Unknown'}
+City (English): {city_english if city_english else 'Unknown'}
+Type: {arabic_text if arabic_text else 'Unknown'}
+Arabic: {arabic_number if arabic_number else 'Unknown'}
+English: {english_number if english_number else 'Unknown'}"""
                 else:
                     summary_text = "❌ No plate detected in image"
 
-                st.text_area("Summary", value=summary_text, height=120, key="summary")
+                st.text_area("Summary", value=summary_text, height=120, key="summary_img")
                 
                 # Add export functionality
                 if plate_detected:
-                    if st.button("📥 Export Results"):
+                    if st.button("📥 Export Results", key="export_img"):
                         # Create a simple text report
                         report = f"""Yemeni Traffic Plate Recognition Results
                         
-    Image: {uploaded_file.name}
-    Processing Time: {time.strftime("%Y-%m-%d %H:%M:%S")}
+Image: {uploaded_file.name}
+Processing Time: {time.strftime("%Y-%m-%d %H:%M:%S")}
                         
-    Results:
-    - City Number (Arabic): {city_arabic if city_arabic else 'Not detected'}
-    - City Number (English): {city_english if city_english else 'Not detected'}
-    - Vehicle Type: {arabic_text if arabic_text else 'Not detected'}
-    - Arabic Number: {arabic_number if arabic_number else 'Not detected'}
-    - English Number: {english_number if english_number else 'Not detected'}
+Results:
+- City Number (Arabic): {city_arabic if city_arabic else 'Not detected'}
+- City Number (English): {city_english if city_english else 'Not detected'}
+- Vehicle Type: {arabic_text if arabic_text else 'Not detected'}
+- Arabic Number: {arabic_number if arabic_number else 'Not detected'}
+- English Number: {english_number if english_number else 'Not detected'}
                         
-    Full OCR Text: {full_plate_text if full_plate_text else 'No text detected'}
-    """
+Full OCR Text: {full_plate_text if full_plate_text else 'No text detected'}
+"""
                         st.download_button(
                             label="Download Report",
                             data=report,
                             file_name=f"plate_results_{time.strftime('%Y%m%d_%H%M%S')}.txt",
-                            mime="text/plain"
+                            mime="text/plain",
+                            key="download_img"
                         )
                         
         except Exception as e:
@@ -279,19 +296,37 @@ else:  # Live Stream mode
     with st.expander("ℹ️ Instructions"):
         st.markdown("""
         1. Enter the URL of a live stream (RTSP, HTTP, etc.)
-        2. The system will process frames in real-time
-        3. Detected plates will be displayed with results
-        4. Click 'Stop Stream' to end the detection
+        2. Click 'Start Stream' to begin processing
+        3. The system will process frames in real-time
+        4. Detected plates will be displayed with results
+        5. Click 'Stop Stream' to end the detection
         """)
     
-    stream_url = st.text_input("Enter Stream URL:", placeholder="e.g., rtsp://username:password@ip:port/stream")
+    stream_url = st.text_input("Enter Stream URL:", placeholder="e.g., rtsp://username:password@ip:port/stream", key="stream_url")
     
-    if stream_url:
-        # Initialize video capture
-        cap = cv2.VideoCapture(stream_url)
+    col1, col2 = st.columns(2)
+    with col1:
+        start_button = st.button("Start Stream", key="start_stream")
+    with col2:
+        stop_button = st.button("Stop Stream", key="stop_stream")
+    
+    if start_button:
+        st.session_state.stream_active = True
+        st.session_state.frame_count = 0
         
-        if not cap.isOpened():
+    if stop_button:
+        st.session_state.stream_active = False
+        if 'cap' in st.session_state:
+            st.session_state.cap.release()
+    
+    if st.session_state.stream_active and stream_url:
+        # Initialize video capture
+        if 'cap' not in st.session_state or not st.session_state.cap.isOpened():
+            st.session_state.cap = cv2.VideoCapture(stream_url)
+        
+        if not st.session_state.cap.isOpened():
             st.error("Could not open stream. Please check the URL and try again.")
+            st.session_state.stream_active = False
         else:
             st.success("Stream connected successfully!")
             
@@ -299,45 +334,75 @@ else:  # Live Stream mode
             frame_placeholder = st.empty()
             results_placeholder = st.empty()
             
-            stop_button = st.button("Stop Stream")
-            
             # Process frames from the stream
-            while cap.isOpened() and not stop_button:
-                ret, frame = cap.read()
+            while st.session_state.stream_active and st.session_state.cap.isOpened():
+                ret, frame = st.session_state.cap.read()
+                st.session_state.frame_count += 1
                 
                 if not ret:
                     st.error("Failed to read frame from stream.")
+                    st.session_state.stream_active = False
                     break
                 
-                # Process the frame
-                annotated, plate_detected, city_arabic, city_english, arabic_text, arabic_number, english_number, full_plate_text = process_frame(
-                    frame, plate_model, details_model, reader
-                )
+                # Process every 5th frame to reduce processing load
+                if st.session_state.frame_count % 5 == 0:
+                    # Process the frame
+                    annotated, plate_detected, city_arabic, city_english, arabic_text, arabic_number, english_number, full_plate_text = process_frame(
+                        frame, plate_model, details_model, reader
+                    )
+                    
+                    # Update session state with latest detection
+                    if plate_detected:
+                        st.session_state.last_detection = {
+                            'city_arabic': city_arabic,
+                            'city_english': city_english,
+                            'arabic_text': arabic_text,
+                            'arabic_number': arabic_number,
+                            'english_number': english_number,
+                            'full_plate_text': full_plate_text
+                        }
+                    
+                    # Convert to RGB for display
+                    annotated_rgb = cv2.cvtColor(annotated, cv2.COLOR_BGR2RGB)
+                    
+                    # Display the frame
+                    frame_placeholder.image(annotated_rgb, caption="Live Stream Detection", use_container_width=True)
                 
-                # Convert to RGB for display
-                annotated_rgb = cv2.cvtColor(annotated, cv2.COLOR_BGR2RGB)
-                
-                # Display the frame
-                frame_placeholder.image(annotated_rgb, caption="Live Stream Detection", use_column_width=True)
-                
-                # Display results if a plate was detected
-                if plate_detected:
-                    with results_placeholder.container():
-                        st.subheader("📋 Latest Detection")
-                        col1, col2 = st.columns(2)
+                # Display results using the session state
+                with results_placeholder.container():
+                    st.subheader("📋 Latest Detection")
+                    col1, col2 = st.columns(2)
+                    
+                    with col1:
+                        st.text_input("City Number (Arabic)", 
+                                    value=st.session_state.last_detection['city_arabic'], 
+                                    key=f"live_city_arabic_{st.session_state.frame_count}")
+                        st.text_input("City Number (English)", 
+                                    value=st.session_state.last_detection['city_english'], 
+                                    key=f"live_city_english_{st.session_state.frame_count}")
+                        st.text_input("Vehicle Type", 
+                                    value=st.session_state.last_detection['arabic_text'], 
+                                    key=f"live_type_{st.session_state.frame_count}")
                         
-                        with col1:
-                            st.text_input("City Number (Arabic)", value=city_arabic, key="live_city_arabic")
-                            st.text_input("City Number (English)", value=city_english, key="live_city_english")
-                            st.text_input("Vehicle Type", value=arabic_text, key="live_type")
-                            
-                        with col2:
-                            st.text_input("Arabic Number", value=arabic_number, key="live_arabic_num")
-                            st.text_input("English Number", value=english_number, key="live_english_num")
+                    with col2:
+                        st.text_input("Arabic Number", 
+                                    value=st.session_state.last_detection['arabic_number'], 
+                                    key=f"live_arabic_num_{st.session_state.frame_count}")
+                        st.text_input("English Number", 
+                                    value=st.session_state.last_detection['english_number'], 
+                                    key=f"live_english_num_{st.session_state.frame_count}")
+                    
+                    st.text_area("Full OCR Text", 
+                                value=st.session_state.last_detection['full_plate_text'], 
+                                height=100, 
+                                key=f"live_ocr_output_{st.session_state.frame_count}")
                 
                 # Add a small delay to prevent overwhelming the system
                 time.sleep(0.1)
             
             # Release the capture when done
-            cap.release()
-            st.info("Stream stopped.")
+            if 'cap' in st.session_state and st.session_state.cap.isOpened():
+                st.session_state.cap.release()
+            
+            if not st.session_state.stream_active:
+                st.info("Stream stopped.")
