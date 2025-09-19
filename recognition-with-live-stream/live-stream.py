@@ -144,7 +144,7 @@ if __name__ == "__main__":
         raise FileNotFoundError(f"Model not found at: {model_path_str}")
     
     # Configuration
-    STREAM_URL = "http://192.168.1.33:8080/video"  # Update with your stream URL
+    STREAM_URL = "http://192.168.8.135:8080/video"  # Update with your stream URL
     
     # Initialize detector
     detector = CarPlateDetector(

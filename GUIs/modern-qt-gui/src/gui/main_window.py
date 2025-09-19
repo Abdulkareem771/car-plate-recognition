@@ -16,6 +16,8 @@ from src.utils.helpers import is_valid_ip, is_valid_url
 from src.gui.styles import DARK_STYLE
 
 import time
+import paho.mqtt.client as mqtt
+import json
 from datetime import datetime
 
 class PlateApp(QWidget):
@@ -37,17 +39,21 @@ class PlateApp(QWidget):
         self.camera_thread.frame_ready.connect(self.update_frame)
         self.camera_thread.error_occurred.connect(self.handle_camera_error)
         
+        # MQTT client
+        self.mqtt_client = None
+        self.mqtt_connected = False
+        
         # Frame processing variables
         self.current_frame = None
-        self.annotated_frame = None  # Store the annotated frame with bounding boxes
+        self.annotated_frame = None
         self.processing_frame = False
         self.last_processed_time = 0
-        self.processing_interval = 2.0  # Process every 2 seconds to avoid overload
+        self.processing_interval = 2.0
 
         # Initialize processing timer
         self.processing_timer = QTimer()
         self.processing_timer.timeout.connect(self.process_camera_frame)
-        self.processing_timer.start(100)  # Process every 100ms (10 FPS)
+        self.processing_timer.start(100)
         
         # Apply styles
         self.setStyleSheet(DARK_STYLE)
@@ -131,6 +137,45 @@ class PlateApp(QWidget):
         self.confidence_label = QLabel("0.5")
         confidence_layout.addWidget(self.confidence_label)
         options_layout.addLayout(confidence_layout)
+        
+        # MQTT Settings - Compact version
+        mqtt_group = QGroupBox("MQTT Settings")
+        mqtt_group.setMaximumHeight(200)
+        mqtt_layout = QGridLayout()
+        
+        # MQTT Enable checkbox
+        self.mqtt_enable_check = QCheckBox("Enable MQTT")
+        self.mqtt_enable_check.setChecked(True)
+        self.mqtt_enable_check.stateChanged.connect(self.toggle_mqtt_settings)
+        mqtt_layout.addWidget(self.mqtt_enable_check, 0, 0, 1, 2)
+        
+        # Broker address
+        mqtt_layout.addWidget(QLabel("Broker:"), 1, 0)
+        self.broker_input = QLineEdit("192.168.8.101")
+        self.broker_input.setPlaceholderText("MQTT broker IP")
+        self.broker_input.setEnabled(False)
+        mqtt_layout.addWidget(self.broker_input, 1, 1)
+        
+        # Topic for publishing
+        mqtt_layout.addWidget(QLabel("Topic:"), 2, 0)
+        self.topic_input = QLineEdit("car/summary")
+        self.topic_input.setPlaceholderText("MQTT topic")
+        self.topic_input.setEnabled(False)
+        mqtt_layout.addWidget(self.topic_input, 2, 1)
+        
+        # Connection status and button
+        self.mqtt_status_label = QLabel("Disconnected")
+        self.mqtt_status_label.setStyleSheet("color: #ff6666; font-size: 10px;")
+        mqtt_layout.addWidget(self.mqtt_status_label, 3, 0)
+        
+        self.mqtt_connect_btn = QPushButton("Connect")
+        self.mqtt_connect_btn.clicked.connect(self.connect_mqtt)
+        self.mqtt_connect_btn.setEnabled(True)
+        self.mqtt_connect_btn.setMaximumWidth(80)
+        mqtt_layout.addWidget(self.mqtt_connect_btn, 3, 1)
+        
+        mqtt_group.setLayout(mqtt_layout)
+        options_layout.addWidget(mqtt_group)
         
         options_group.setLayout(options_layout)
         image_tab_layout.addWidget(options_group)
@@ -233,6 +278,89 @@ class PlateApp(QWidget):
         main_layout.addLayout(right_panel, 1)
 
         self.setLayout(main_layout)
+        
+    def toggle_mqtt_settings(self, state):
+        """Enable/disable MQTT settings based on checkbox"""
+        enabled = (state == Qt.Checked)
+        self.broker_input.setEnabled(enabled)
+        self.topic_input.setEnabled(enabled)
+        self.mqtt_connect_btn.setEnabled(enabled)
+        
+        if not enabled and self.mqtt_client:
+            self.disconnect_mqtt()
+
+    def connect_mqtt(self):
+        """Connect to MQTT broker"""
+        if self.mqtt_client and self.mqtt_connected:
+            return
+        
+        broker = self.broker_input.text().strip()
+        if not broker:
+            QMessageBox.warning(self, "MQTT Error", "Please enter a broker address")
+            return
+        
+        try:
+            # Create MQTT client
+            client_id = f"plate_recognition_{int(time.time())}"
+            self.mqtt_client = mqtt.Client(client_id=client_id)
+            
+            # Connect to broker
+            self.mqtt_client.connect(broker, 1883, 60)
+            self.mqtt_client.loop_start()
+            
+            self.mqtt_connected = True
+            self.mqtt_status_label.setText("Connected")
+            self.mqtt_status_label.setStyleSheet("color: #66ff66; font-size: 10px;")
+            self.mqtt_connect_btn.setText("Disconnect")
+            self.mqtt_connect_btn.clicked.disconnect()
+            self.mqtt_connect_btn.clicked.connect(self.disconnect_mqtt)
+            
+        except Exception as e:
+            QMessageBox.critical(self, "MQTT Error", f"Failed to connect to MQTT broker: {str(e)}")
+            self.mqtt_status_label.setText("Connection Failed")
+            self.mqtt_status_label.setStyleSheet("color: #ff6666; font-size: 10px;")
+
+    def disconnect_mqtt(self):
+        """Disconnect from MQTT broker"""
+        if self.mqtt_client:
+            try:
+                self.mqtt_client.loop_stop()
+                self.mqtt_client.disconnect()
+            except:
+                pass
+            
+        self.mqtt_client = None
+        self.mqtt_connected = False
+        self.mqtt_status_label.setText("Disconnected")
+        self.mqtt_status_label.setStyleSheet("color: #ff6666; font-size: 10px;")
+        self.mqtt_connect_btn.setText("Connect")
+        self.mqtt_connect_btn.clicked.disconnect()
+        self.mqtt_connect_btn.clicked.connect(self.connect_mqtt)
+
+    def publish_to_mqtt(self, summary_data):
+        """Publish summary data to MQTT topic"""
+        if not self.mqtt_connected or not self.mqtt_client:
+            return False
+        
+        try:
+            topic = self.topic_input.text().strip() or "car/summary"
+            
+            # Convert summary data to JSON
+            payload = json.dumps(summary_data, ensure_ascii=False)
+            
+            # Publish to MQTT
+            result = self.mqtt_client.publish(topic, payload)
+            
+            if result.rc == mqtt.MQTT_ERR_SUCCESS:
+                print(f"Published to MQTT topic {topic}: {payload}")
+                return True
+            else:
+                print(f"Failed to publish to MQTT: {result.rc}")
+                return False
+                
+        except Exception as e:
+            print(f"MQTT publish error: {e}")
+            return False
         
     def camera_type_changed(self, index):
         is_ip_camera = (index == 1)  # IP Camera selected
@@ -365,18 +493,34 @@ class PlateApp(QWidget):
         
         # Traffic summary
         summary_text = ""
+        summary_data = {
+            "timestamp": datetime.now().isoformat(),
+            "image_file": file_path.split('/')[-1],
+            "plate_detected": plate_detected,
+            "city": city_val if city_val else "Unknown",
+            "vehicle_type": arabic_text if arabic_text else "Unknown",
+            "arabic_number": arabic_number if arabic_number else "Not detected",
+            "english_number": english_number if english_number else "Not detected",
+            "full_text": full_plate_text if full_plate_text else "No text detected"
+        }
+        
         if plate_detected:
             summary_text += f"✅ Plate Detected\n"
-            summary_text += f"City: {city_val if city_val else 'Unknown'}\n"
-            summary_text += f"Type: {arabic_text if arabic_text else 'Unknown'}\n"
+            summary_text += f"City: {summary_data['city']}\n"
+            summary_text += f"Type: {summary_data['vehicle_type']}\n"
             if arabic_number:
                 summary_text += f"Arabic: {arabic_number}\n"
             if english_number:
                 summary_text += f"English: {english_number}\n"
         else:
             summary_text = "❌ No plate detected in image"
+            summary_data["plate_detected"] = False
         
         self.summary_output.setPlainText(summary_text)
+        
+        # Publish to MQTT if enabled
+        if plate_detected and self.mqtt_enable_check.isChecked() and self.mqtt_connected:
+            self.publish_to_mqtt(summary_data)
         
         # Add to history
         if plate_detected and self.save_results_check.isChecked():
@@ -384,7 +528,12 @@ class PlateApp(QWidget):
             self.history_text.append(history_entry)
             
         self.progress_bar.setValue(100)
-        QTimer.singleShot(1000, lambda: self.progress_bar.setVisible(False))
+        
+        # Hide progress bar after a short delay without affecting other UI elements
+        def hide_progress():
+            self.progress_bar.setVisible(False)
+            
+        QTimer.singleShot(500, hide_progress)
         
     def start_camera(self):
         camera_type = self.camera_type_combo.currentIndex()
@@ -422,7 +571,7 @@ class PlateApp(QWidget):
         
     def stop_camera(self):
         self.camera_thread.stop()
-        self.annotated_frame = None  # Clear annotated frame
+        self.annotated_frame = None
         self.btn_start_cam.setEnabled(True)
         self.btn_stop_cam.setEnabled(False)
         
@@ -457,8 +606,9 @@ class PlateApp(QWidget):
     def closeEvent(self, event):
         self.camera_thread.stop()
         self.processing_timer.stop()
+        self.disconnect_mqtt()
         event.accept()
-        
+    
     def process_camera_frame(self):
         """Process the current camera frame directly without temp files"""
         if self.processing_frame or self.current_frame is None:
@@ -559,19 +709,36 @@ class PlateApp(QWidget):
             self.full_ocr_output.setPlainText(full_plate_text if full_plate_text else "No text detected")
             
             # Traffic summary
+            # Traffic summary
             summary_text = ""
+            summary_data = {
+                "timestamp": datetime.now().isoformat(),
+                "source": "live_camera",
+                "plate_detected": plate_detected,
+                "city": city_val if city_val else "Unknown",
+                "vehicle_type": arabic_text if arabic_text else "Unknown",
+                "arabic_number": arabic_number if arabic_number else "Not detected",
+                "english_number": english_number if english_number else "Not detected",
+                "full_text": full_plate_text if full_plate_text else "No text detected"
+            }
+            
             if plate_detected:
                 summary_text += f"✅ Plate Detected (Live)\n"
-                summary_text += f"City: {city_val if city_val else 'Unknown'}\n"
-                summary_text += f"Type: {arabic_text if arabic_text else 'Unknown'}\n"
+                summary_text += f"City: {summary_data['city']}\n"
+                summary_text += f"Type: {summary_data['vehicle_type']}\n"
                 if arabic_number:
                     summary_text += f"Arabic: {arabic_number}\n"
                 if english_number:
                     summary_text += f"English: {english_number}\n"
             else:
                 summary_text = "❌ No plate detected in live feed"
+                summary_data["plate_detected"] = False
             
             self.summary_output.setPlainText(summary_text)
+            
+            # Publish to MQTT if enabled and plate detected
+            if plate_detected and self.mqtt_enable_check.isChecked() and self.mqtt_connected:
+                self.publish_to_mqtt(summary_data)
             
             # Add to history
             if plate_detected and self.save_results_check.isChecked():
